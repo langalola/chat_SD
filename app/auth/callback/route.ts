@@ -1,51 +1,18 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get("code");
+  const { searchParams, origin } = request.nextUrl
+  const code = searchParams.get('code')
+  const next = searchParams.get('next') ?? '/'
 
   if (code) {
-    const cookieStore = await cookies();
-
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          },
-        },
-      },
-    );
-
-    await supabase.auth.exchangeCodeForSession(code);
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (!userError && user) {
-      const metadata = user.user_metadata as Record<string, any> | undefined;
-      const name =
-        metadata?.name ||
-        (user.email ? user.email.split("@")[0] : `user-${user.id.slice(0, 8)}`);
-
-      await supabase.from("profiles").upsert({
-        id: user.id,
-        name,
-        email: user.email ?? "",
-        avatar_url: metadata?.avatar_url ?? null,
-      });
+    const supabase = await createClient()
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
+      return NextResponse.redirect(`${origin}${next}`)
     }
   }
 
-  // Caso ja foi logado!
-  return NextResponse.redirect(new URL("/chat", request.url));
+  return NextResponse.redirect(`${origin}/auth/error`)
 }

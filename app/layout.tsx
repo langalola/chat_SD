@@ -2,11 +2,12 @@ import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
 import clsx from "clsx";
 
-import { Providers } from "./providers";
-
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
-import { Navbar } from "@/components/navbar";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   title: {
@@ -32,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html suppressHydrationWarning lang="en">
+    <html lang="en" className={cn("font-sans", geist.variable)}>
       <head />
       <body
         className={clsx(
@@ -40,11 +41,9 @@ export default function RootLayout({
           fontSans.variable,
         )}
       >
-        <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
-          <main className="flex" style={{width:"100vw", height:"100vh"}}>
-            {children}
-          </main>
-        </Providers>
+        <main className="flex" style={{width:"100vw", height:"100vh"}}>
+          {children}
+        </main>
       </body>
     </html>
   );
