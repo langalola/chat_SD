@@ -10,7 +10,31 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get conversations where user is a member
+    console.log('[v0] Fetching conversations for user:', user.user.id)
+
+    // Get conversations where user is a member via users_conversations
+    const { data: userConversations, error: userConvError } = await supabase
+      .from('users_conversations')
+      .select('conversation_id')
+      .eq('user_id', user.user.id)
+
+    if (userConvError) {
+      console.error('[v0] Error fetching user conversations:', userConvError)
+      return NextResponse.json(
+        { error: 'Failed to fetch conversations' },
+        { status: 500 }
+      )
+    }
+
+    console.log('[v0] User conversations:', userConversations)
+
+    const conversationIds = userConversations?.map((uc) => uc.conversation_id) || []
+
+    if (conversationIds.length === 0) {
+      return NextResponse.json([])
+    }
+
+    // Get full conversation details
     const { data: conversations, error } = await supabase
       .from('conversations')
       .select(
@@ -20,6 +44,7 @@ export async function GET() {
         conversation_participants:conversation_participants(id, user_id, role)
       `
       )
+      .in('id', conversationIds)
       .order('updated_at', { ascending: false })
 
     if (error) {
@@ -52,6 +77,8 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { name, isGroup } = body
 
+    console.log('[v0] Creating conversation for user:', user.user.id)
+
     const { data: conversation, error } = await supabase
       .from('conversations')
       .insert({
@@ -69,6 +96,8 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    console.log('[v0] Created conversation:', conversation)
 
     return NextResponse.json(conversation)
   } catch (error) {
