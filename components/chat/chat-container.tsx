@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { ConversationList } from './conversation-list'
 import { ChatWindow } from './chat-window'
-import { createConversation, getUserConversations } from '@/lib/supabase/chat'
 import type { ConversationWithDetails } from '@/lib/types/chat'
 
 export function ChatContainer() {
@@ -18,11 +17,14 @@ export function ChatContainer() {
     const loadConversations = async () => {
       setIsLoading(true)
       try {
-        const convs = await getUserConversations()
+        const response = await fetch('/api/chat/conversations')
+        const convs = await response.json()
         setConversations(convs)
         if (convs.length > 0 && !selectedConversation) {
           setSelectedConversation(convs[0])
         }
+      } catch (error) {
+        console.error('[v0] Error loading conversations:', error)
       } finally {
         setIsLoading(false)
       }
@@ -34,14 +36,20 @@ export function ChatContainer() {
   const handleCreateNew = async () => {
     setIsLoading(true)
     try {
-      const newConv = await createConversation(null, false)
+      const response = await fetch('/api/chat/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: null, isGroup: false }),
+      })
+      const newConv = await response.json()
       if (newConv) {
-        const convs = await getUserConversations()
+        const convRes = await fetch('/api/chat/conversations')
+        const convs = await convRes.json()
         setConversations(convs)
-        setSelectedConversation(
-          convs.find((c) => c.id === newConv.id) || null
-        )
+        setSelectedConversation(convs.find((c: any) => c.id === newConv.id) || null)
       }
+    } catch (error) {
+      console.error('[v0] Error creating conversation:', error)
     } finally {
       setIsLoading(false)
     }

@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { ConversationWithDetails, Message } from '@/lib/types/chat'
-import { sendMessage, getConversationMessages } from '@/lib/supabase/chat'
 
 interface ChatWindowProps {
   conversation: ConversationWithDetails | null
@@ -22,8 +20,15 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     if (!conversation) return
 
     const loadMessages = async () => {
-      const msgs = await getConversationMessages(conversation.id)
-      setMessages(msgs)
+      try {
+        const response = await fetch(
+          `/api/chat/conversations/${conversation.id}/messages`
+        )
+        const msgs = await response.json()
+        setMessages(msgs)
+      } catch (error) {
+        console.error('[v0] Error loading messages:', error)
+      }
     }
 
     loadMessages()
@@ -35,11 +40,21 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
 
     setIsLoading(true)
     try {
-      const message = await sendMessage(conversation.id, newMessage)
+      const response = await fetch(
+        `/api/chat/conversations/${conversation.id}/messages`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: newMessage }),
+        }
+      )
+      const message = await response.json()
       if (message) {
         setMessages([...messages, message])
         setNewMessage('')
       }
+    } catch (error) {
+      console.error('[v0] Error sending message:', error)
     } finally {
       setIsLoading(false)
     }
