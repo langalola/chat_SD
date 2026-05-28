@@ -126,6 +126,56 @@ export async function POST(request: Request) {
 
     console.log('[v0] Created conversation:', conversation)
 
+    // Add creator as owner to conversation_participants and users_conversations
+    const { error: creatorParticipantError } = await supabase
+      .from('conversation_participants')
+      .insert({
+        conversation_id: conversation.id,
+        user_id: user.user.id,
+        role: 'owner',
+      })
+
+    const { error: creatorUserConvError } = await supabase
+      .from('users_conversations')
+      .insert({
+        user_id: user.user.id,
+        conversation_id: conversation.id,
+      })
+
+    if (creatorParticipantError || creatorUserConvError) {
+      console.error(
+        '[v0] Error adding creator:',
+        creatorParticipantError || creatorUserConvError
+      )
+    }
+
+    // Add additional participants if provided
+    if (participantIds && participantIds.length > 0) {
+      const participants = participantIds.map((id: string) => ({
+        conversation_id: conversation.id,
+        user_id: id,
+        role: 'participant',
+      }))
+
+      // Also add to users_conversations
+      const usersConversations = participantIds.map((id: string) => ({
+        user_id: id,
+        conversation_id: conversation.id,
+      }))
+
+      const { error: participantError } = await supabase
+        .from('conversation_participants')
+        .insert(participants)
+
+      const { error: userConvError } = await supabase
+        .from('users_conversations')
+        .insert(usersConversations)
+
+      if (participantError || userConvError) {
+        console.error('[v0] Error adding participants:', participantError || userConvError)
+      }
+    }
+
     return NextResponse.json(conversation)
   } catch (error) {
     console.error('[v0] Error in POST /api/chat/conversations:', error)

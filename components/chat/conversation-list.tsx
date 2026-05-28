@@ -54,7 +54,6 @@ export function ConversationList({
 
   const handleSelectUser = async (user: UserSearchResult) => {
     try {
-      // Create a new 1-on-1 conversation with the selected user
       const response = await fetch('/api/chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,22 +75,38 @@ export function ConversationList({
     }
   }
 
+  const filteredConversations = conversations.filter((conv) => {
+    const name = conv.name || ''
+    const lastMessage = conv.messages?.[conv.messages.length - 1]?.content || ''
+    const searchTerm = searchQuery.toLowerCase()
+    return name.toLowerCase().includes(searchTerm) || lastMessage.toLowerCase().includes(searchTerm)
+  })
+
   return (
-    <div className="w-full h-full flex flex-col bg-background border-r">
+    <div className="w-full h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="p-4 border-b space-y-3">
-        <Button onClick={onCreateNew} className="w-full" disabled={isLoading}>
-          <Plus className="w-4 h-4 mr-2" /> Nova Conversa
-        </Button>
+      <div className="p-4 border-b space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Chats</h1>
+          <Button
+            onClick={onCreateNew}
+            size="icon"
+            variant="ghost"
+            disabled={isLoading}
+            className="rounded-full h-10 w-10 border border-muted-foreground/30"
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
 
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar utilizadores..."
+            placeholder="Chats search..."
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 bg-muted/50 border-muted rounded-full"
           />
           {searchQuery && (
             <button
@@ -110,7 +125,7 @@ export function ConversationList({
 
       {/* Search Results */}
       {showSearchResults && (
-        <div className="border-b bg-muted/30 max-h-48 overflow-y-auto">
+        <div className="border-b bg-muted/20 max-h-48 overflow-y-auto">
           {isSearching ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Procurando...
@@ -121,7 +136,7 @@ export function ConversationList({
                 <button
                   key={user.id}
                   onClick={() => handleSelectUser(user)}
-                  className="w-full text-left p-2 rounded hover:bg-muted transition-colors text-sm"
+                  className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors text-sm"
                 >
                   <p className="font-medium">{user.full_name}</p>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
@@ -137,48 +152,80 @@ export function ConversationList({
       )}
 
       {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-2">
         {isLoading ? (
-          <div className="p-4 text-center text-muted-foreground">
+          <div className="p-4 text-center text-sm text-muted-foreground">
             Carregando...
           </div>
-        ) : conversations.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground">
+        ) : filteredConversations.length === 0 ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">
             Nenhuma conversa ainda
           </div>
         ) : (
-          <div className="space-y-2 p-2">
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => onSelect(conv)}
-                className={`w-full text-left p-3 rounded-lg transition-colors ${
-                  selectedId === conv.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {conv.name || 'Conversa Direta'}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {conv.messages?.[conv.messages.length - 1]?.content ||
-                        'Sem mensagens'}
-                    </p>
-                  </div>
-                  {conv.updated_at && (
-                    <p className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
-                      {formatDistanceToNow(new Date(conv.updated_at), {
-                        locale: ptBR,
-                        addSuffix: false,
-                      })}
-                    </p>
-                  )}
-                </div>
-              </button>
-            ))}
+          <div className="space-y-2">
+            {filteredConversations.map((conv) => {
+              const lastMessage = conv.messages?.[conv.messages.length - 1]
+              const isSelected = selectedId === conv.id
+
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => onSelect(conv)}
+                  className="w-full text-left transition-all"
+                >
+                  <Card
+                    className={`border-0 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted/40 hover:bg-muted/60'
+                    }`}
+                  >
+                    <div className="p-3 flex items-center gap-3">
+                      {/* Avatar */}
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${
+                          isSelected ? 'bg-primary-foreground/20' : 'bg-muted/60'
+                        }`}
+                      >
+                        {(conv.name || 'D')[0].toUpperCase()}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="font-semibold truncate text-sm">
+                            {conv.name || 'Conversa Direta'}
+                          </p>
+                          {lastMessage?.created_at && (
+                            <p className={`text-xs whitespace-nowrap opacity-70 ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              {formatDistanceToNow(new Date(lastMessage.created_at), {
+                                locale: ptBR,
+                                addSuffix: false,
+                              })}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <p className={`text-xs truncate ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                            {lastMessage?.content || 'Sem mensagens'}
+                          </p>
+                          {lastMessage?.status === 'read' && (
+                            <span className={`text-xs flex-shrink-0 ${isSelected ? 'text-primary-foreground' : 'text-muted-foreground'}`}>✓✓</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Unread Indicator (if needed) */}
+                      {false && (
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-white">2</span>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { X } from 'lucide-react'
+import { X, Settings } from 'lucide-react'
 import type { ConversationWithDetails, Message, TypingIndicator } from '@/lib/types/chat'
 import { ChatRealtimeService } from '@/lib/supabase/realtime'
 import { createClient } from '@/lib/supabase/client'
+import { ManageGroupModal } from './manage-group-modal'
 
 interface ChatWindowProps {
   conversation: ConversationWithDetails | null
@@ -19,6 +20,8 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set())
+  const [showManageGroup, setShowManageGroup] = useState(false)
+  const [currentUserRole, setCurrentUserRole] = useState<string>('')
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
   const realtimeServiceRef = useRef<ChatRealtimeService | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -44,6 +47,19 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         )
         const msgs = await response.json()
         setMessages(msgs)
+
+        // Get current user's role
+        const partResponse = await fetch(
+          `/api/chat/conversations/${conversation.id}/participants`
+        )
+        const participants = await partResponse.json()
+        const { data: user } = await supabase.auth.getUser()
+        const currentParticipant = participants.find(
+          (p: any) => p.user_id === user.user?.id
+        )
+        if (currentParticipant) {
+          setCurrentUserRole(currentParticipant.role)
+        }
       } catch (error) {
         console.error('[v0] Error loading messages:', error)
       }
@@ -160,9 +176,21 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
             {conversation.conversation_participants?.length || 0} participantes
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          Fechar
-        </Button>
+        <div className="flex gap-2">
+          {conversation.is_group && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowManageGroup(true)}
+              title="Gerenciar membros"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -252,6 +280,21 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
           </Button>
         </form>
       </div>
+
+      {/* Manage Group Modal */}
+      {conversation.is_group && (
+        <ManageGroupModal
+          isOpen={showManageGroup}
+          onClose={() => setShowManageGroup(false)}
+          conversationId={conversation.id}
+          conversationName={conversation.name || 'Grupo'}
+          participants={conversation.conversation_participants || []}
+          currentUserRole={currentUserRole}
+          onMembersUpdated={async () => {
+            // Reload conversation data if needed
+          }}
+        />
+      )}
     </div>
   )
 }
