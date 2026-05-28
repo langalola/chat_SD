@@ -169,49 +169,55 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <div>
-          <h2 className="font-semibold text-lg">
+      <div className="flex items-center justify-between p-3 md:p-4 border-b bg-card flex-shrink-0">
+        <div className="min-w-0">
+          <h2 className="font-semibold text-base md:text-lg truncate">
             {conversation.name || 'Conversa Direta'}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs md:text-sm text-muted-foreground">
             {conversation.conversation_participants?.length || 0} participantes
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 md:gap-2 flex-shrink-0">
           {conversation.is_group && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowGroupSettings(true)}
               title="Configurações do grupo"
+              className="h-8 w-8 md:h-9 md:w-9"
             >
               <Settings className="w-4 h-4" />
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onClose}
+            className="md:hidden h-8 w-8"
+          >
             <X className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-3 md:space-y-4">
         {messages.length === 0 ? (
-          <p className="text-center text-muted-foreground">
+          <p className="text-center text-sm md:text-base text-muted-foreground">
             Sem mensagens ainda
           </p>
         ) : (
           messages.map((msg) => (
-            <div key={msg.id} className="flex gap-3 group hover:bg-muted/50 p-2 rounded-lg transition">
-              <div className="flex-1">
+            <div key={msg.id} className="flex gap-2 md:gap-3 group hover:bg-muted/50 p-2 rounded-lg transition">
+              <div className="flex-1 min-w-0">
                 {msg.replied_to_id && (
                   <div className="bg-muted/50 border-l-2 border-primary pl-2 mb-2 text-xs text-muted-foreground">
-                    <p className="font-semibold">Resposta a mensagem</p>
+                    <p className="font-semibold">Resposta</p>
                   </div>
                 )}
-                <div className="bg-muted p-3 rounded-lg">
-                  <p className="text-sm">{msg.content}</p>
+                <div className="bg-muted p-2 md:p-3 rounded-lg">
+                  <p className="text-xs md:text-sm break-words">{msg.content}</p>
                 </div>
                 <div className="flex gap-2 items-center mt-1">
                   <p className="text-xs text-muted-foreground">
@@ -226,7 +232,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setReplyTo(msg)}
-                className="opacity-0 group-hover:opacity-100 transition"
+                className="opacity-0 group-hover:opacity-100 transition hidden md:inline-flex text-xs"
               >
                 Responder
               </Button>
@@ -247,16 +253,16 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
       </div>
 
       {/* Message Input */}
-      <div className="border-t p-4 space-y-2">
+      <div className="border-t p-2 md:p-4 space-y-2 bg-card flex-shrink-0">
         {replyTo && (
-          <div className="bg-muted p-2 rounded-lg flex items-start justify-between">
-            <div className="text-xs">
+          <div className="bg-muted p-2 rounded-lg flex items-start justify-between text-xs md:text-sm">
+            <div>
               <p className="font-semibold">Respondendo a</p>
               <p className="text-muted-foreground truncate">{replyTo.content}</p>
             </div>
             <button
               onClick={() => setReplyTo(null)}
-              className="p-1 hover:bg-background rounded"
+              className="p-1 hover:bg-background rounded flex-shrink-0"
             >
               <X className="w-4 h-4" />
             </button>

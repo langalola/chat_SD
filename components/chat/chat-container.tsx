@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { ConversationList } from './conversation-list'
 import { ChatWindow } from './chat-window'
 import { CreateConversationModal } from './create-conversation-modal'
+import { MobileConversationDrawer } from './mobile-conversation-drawer'
+import { Button } from '@/components/ui/button'
+import { Menu } from 'lucide-react'
 import type { ConversationWithDetails } from '@/lib/types/chat'
 
 export function ChatContainer() {
@@ -16,6 +19,7 @@ export function ChatContainer() {
     useState<ConversationWithDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showMobileDrawer, setShowMobileDrawer] = useState(false)
 
   useEffect(() => {
     const loadConversations = async () => {
@@ -64,9 +68,9 @@ export function ChatContainer() {
   }
 
   return (
-    <div className="flex h-full w-full gap-4 bg-background">
-      {/* Left sidebar - Conversation list */}
-      <div className="w-72 border rounded-lg">
+    <div className="flex h-full w-full bg-background">
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex md:w-72 lg:w-80 border-r flex-col">
         <ConversationList
           conversations={conversations}
           selectedId={selectedConversation?.id || null}
@@ -76,12 +80,39 @@ export function ChatContainer() {
         />
       </div>
 
-      {/* Right side - Chat window */}
-      <div className="flex-1 border rounded-lg">
-        <ChatWindow
-          conversation={selectedConversation}
-          onClose={() => setSelectedConversation(null)}
-        />
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col h-full">
+        {/* Mobile header */}
+        <div className="md:hidden flex items-center justify-between p-3 border-b bg-card">
+          <h1 className="text-lg font-bold">
+            {selectedConversation?.name || 'Mensagens'}
+          </h1>
+          <Button
+            onClick={() => setShowMobileDrawer(true)}
+            size="icon"
+            variant="ghost"
+            className="rounded-lg h-9 w-9"
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {/* Chat window */}
+        <div className="flex-1 overflow-hidden">
+          {selectedConversation ? (
+            <ChatWindow
+              conversation={selectedConversation}
+              onClose={() => setSelectedConversation(null)}
+            />
+          ) : (
+            <div className="hidden md:flex w-full h-full items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <p className="text-lg font-medium mb-2">Selecione uma conversa</p>
+                <p className="text-sm">Clique numa conversa para começar</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Create Conversation Modal */}
@@ -90,6 +121,17 @@ export function ChatContainer() {
         onClose={() => setShowCreateModal(false)}
         recentConversations={conversations}
         onConversationCreated={handleConversationCreated}
+      />
+
+      {/* Mobile Drawer */}
+      <MobileConversationDrawer
+        isOpen={showMobileDrawer}
+        onClose={() => setShowMobileDrawer(false)}
+        conversations={conversations}
+        selectedId={selectedConversation?.id || null}
+        onSelect={setSelectedConversation}
+        onCreateNew={handleCreateNew}
+        isLoading={isLoading}
       />
     </div>
   )

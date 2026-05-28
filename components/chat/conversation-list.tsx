@@ -8,6 +8,7 @@ import { Search, Plus, X } from 'lucide-react'
 import type { ConversationWithDetails, UserSearchResult } from '@/lib/types/chat'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { ProfileMenu } from './profile-menu'
 
 interface ConversationListProps {
   conversations: ConversationWithDetails[]
@@ -87,16 +88,19 @@ export function ConversationList({
       {/* Header */}
       <div className="p-4 border-b space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Chats</h1>
-          <Button
-            onClick={onCreateNew}
-            size="icon"
-            variant="ghost"
-            disabled={isLoading}
-            className="rounded-full h-10 w-10 border border-muted-foreground/30"
-          >
-            <Plus className="w-5 h-5" />
-          </Button>
+          <h1 className="text-xl md:text-2xl font-bold">Chats</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={onCreateNew}
+              size="icon"
+              variant="ghost"
+              disabled={isLoading}
+              className="rounded-full h-10 w-10 border border-muted-foreground/30 hover:bg-muted"
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
+            <ProfileMenu />
+          </div>
         </div>
 
         {/* Search */}
