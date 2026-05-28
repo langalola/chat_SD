@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import type { ConversationWithDetails, Message } from '@/lib/types/chat'
+import { X } from 'lucide-react'
+import type { ConversationWithDetails, Message, TypingIndicator } from '@/lib/types/chat'
+import { ChatRealtimeService } from '@/lib/supabase/realtime'
+import { createClient } from '@/lib/supabase/client'
 
 interface ChatWindowProps {
   conversation: ConversationWithDetails | null
@@ -15,9 +17,25 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set())
+  const typingTimeoutRef = useRef<NodeJS.Timeout>()
+  const realtimeServiceRef = useRef<ChatRealtimeService | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   useEffect(() => {
     if (!conversation) return
+
+    const supabase = createClient()
+    realtimeServiceRef.current = new ChatRealtimeService()
 
     const loadMessages = async () => {
       try {
@@ -32,6 +50,50 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     }
 
     loadMessages()
+
+    // Subscribe to real-time messages
+    realtimeServiceRef.current.subscribeToMessages(
+      supabase,
+      conversation.id,
+      (payload) => {
+        console.log('[v0] New message:', payload)
+        if (payload.new) {
+          setMessages((prev) => [...prev, payload.new])
+        }
+      },
+      (payload) => {
+        console.log('[v0] Message deleted:', payload)
+        if (payload.old) {
+          setMessages((prev) => prev.filter((m) => m.id !== payload.old.id))
+        }
+      },
+      (payload) => {
+        console.log('[v0] Message updated:', payload)
+        if (payload.new) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === payload.new.id ? payload.new : m))
+          )
+        }
+      }
+    )
+
+    // Subscribe to typing status
+    realtimeServiceRef.current.subscribeToTyping(supabase, conversation.id, (payload) => {
+      const { userId, isTyping } = payload.payload
+      setTypingUsers((prev) => {
+        const next = new Set(prev)
+        if (isTyping) {
+          next.add(userId)
+        } else {
+          next.delete(userId)
+        }
+        return next
+      })
+    })
+
+    return () => {
+      realtimeServiceRef.current?.unsubscribeAll()
+    }
   }, [conversation])
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -45,19 +107,37 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: newMessage }),
+          body: JSON.stringify({
+            content: newMessage,
+            replied_to_id: replyTo?.id,
+          }),
         }
       )
       const message = await response.json()
       if (message) {
         setMessages([...messages, message])
         setNewMessage('')
+        setReplyTo(null)
       }
     } catch (error) {
       console.error('[v0] Error sending message:', error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleTyping = () => {
+    if (!conversation) return
+    const supabase = createClient()
+    realtimeServiceRef.current?.broadcastTyping(supabase, conversation.id, '', true)
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      realtimeServiceRef.current?.broadcastTyping(supabase, conversation.id, '', false)
+    }, 1000)
   }
 
   if (!conversation) {
@@ -93,26 +173,72 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
           </p>
         ) : (
           messages.map((msg) => (
-            <div key={msg.id} className="flex gap-3">
+            <div key={msg.id} className="flex gap-3 group hover:bg-muted/50 p-2 rounded-lg transition">
               <div className="flex-1">
+                {msg.replied_to_id && (
+                  <div className="bg-muted/50 border-l-2 border-primary pl-2 mb-2 text-xs text-muted-foreground">
+                    <p className="font-semibold">Resposta a mensagem</p>
+                  </div>
+                )}
                 <div className="bg-muted p-3 rounded-lg">
                   <p className="text-sm">{msg.content}</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(msg.created_at).toLocaleTimeString()}
-                </p>
+                <div className="flex gap-2 items-center mt-1">
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(msg.created_at).toLocaleTimeString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {msg.status === 'read' ? '✓✓' : msg.status === 'delivered' ? '✓✓' : '✓'}
+                  </p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setReplyTo(msg)}
+                className="opacity-0 group-hover:opacity-100 transition"
+              >
+                Responder
+              </Button>
             </div>
           ))
         )}
+        {typingUsers.size > 0 && (
+          <div className="flex gap-2 items-center text-xs text-muted-foreground">
+            <p>Alguém está digitando</p>
+            <div className="flex gap-1">
+              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
+              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-100" />
+              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-200" />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input */}
-      <div className="border-t p-4">
+      <div className="border-t p-4 space-y-2">
+        {replyTo && (
+          <div className="bg-muted p-2 rounded-lg flex items-start justify-between">
+            <div className="text-xs">
+              <p className="font-semibold">Respondendo a</p>
+              <p className="text-muted-foreground truncate">{replyTo.content}</p>
+            </div>
+            <button
+              onClick={() => setReplyTo(null)}
+              className="p-1 hover:bg-background rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <form onSubmit={handleSendMessage} className="flex gap-2">
           <Textarea
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value)
+              handleTyping()
+            }}
             placeholder="Digite uma mensagem..."
             className="min-h-10 max-h-24"
             onKeyDown={(e) => {
