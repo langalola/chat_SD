@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LogOut, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -28,6 +29,7 @@ export function ProfileMenu() {
         const { data: userData } = await supabase.auth.getUser()
         
         if (!userData.user) {
+          console.log('[v0] No user found, redirecting to login')
           router.push('/auth/login')
           return
         }
@@ -35,13 +37,25 @@ export function ProfileMenu() {
         setUser(userData.user)
 
         // Get profile data
-        const { data: profileData } = await supabase
+        const { data: profileData, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', userData.user.id)
           .single()
 
-        if (profileData) {
+        if (error) {
+          console.log('[v0] No profile found, creating one')
+          // Create profile if it doesn't exist
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .insert({
+              id: userData.user.id,
+              full_name: userData.user.email?.split('@')[0] || 'Utilizador',
+            })
+            .select()
+            .single()
+          if (newProfile) setProfile(newProfile)
+        } else if (profileData) {
           setProfile(profileData)
         }
       } catch (error) {
@@ -73,16 +87,18 @@ export function ProfileMenu() {
   return (
     <>
       <DropdownMenu>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full h-10 w-10 bg-muted/50 hover:bg-muted"
-          disabled={isLoading}
-        >
-          <div className="w-full h-full rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center font-bold text-sm text-primary-foreground">
-            {avatarLetter}
-          </div>
-        </Button>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full h-10 w-10 border border-muted-foreground/30 hover:bg-muted"
+            disabled={isLoading}
+          >
+            <div className="w-full h-full rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center font-bold text-sm text-primary-foreground">
+              {avatarLetter}
+            </div>
+          </Button>
+        </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel className="font-normal">
