@@ -49,26 +49,28 @@ export function EditProfileModal({
         throw new Error('Utilizador não autenticado')
       }
 
-      const { data: updatedProfile, error: updateError } = await supabase
-        .from('profiles')
-        .update({
+      // Use API endpoint instead of direct Supabase query
+      const response = await fetch(`/api/profiles/${userData.user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           full_name: fullName.trim(),
           description: description.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userData.user.id)
-        .select()
-        .single()
+        }),
+      })
 
-      if (updateError) {
-        throw updateError
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro ao atualizar perfil')
       }
 
+      const updatedProfile = await response.json()
+      console.log('[v0] Profile updated successfully:', updatedProfile)
       onProfileUpdated(updatedProfile)
       onClose()
     } catch (err) {
       console.error('[v0] Error updating profile:', err)
-      setError('Erro ao atualizar perfil. Tente novamente.')
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar perfil. Tente novamente.')
     } finally {
       setIsSaving(false)
     }

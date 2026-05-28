@@ -21,45 +21,52 @@ export function ProfileMenu() {
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showEditProfile, setShowEditProfile] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
+        setError(null)
         const supabase = createClient()
-        const { data: userData } = await supabase.auth.getUser()
         
-        if (!userData.user) {
-          console.log('[v0] No user found, redirecting to login')
+        // Get authenticated user
+        const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
+        
+        if (authError || !currentUser) {
+          console.log('[v0] Auth error or no user:', authError)
           router.push('/auth/login')
           return
         }
 
-        setUser(userData.user)
+        console.log('[v0] Logged in user:', currentUser.id, currentUser.email)
+        setUser(currentUser)
 
-        // Get profile data
-        const { data: profileData, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userData.user.id)
-          .single()
-
-        if (error) {
-          console.log('[v0] No profile found, creating one')
-          // Create profile if it doesn't exist
-          const { data: newProfile } = await supabase
-            .from('profiles')
-            .insert({
-              id: userData.user.id,
-              full_name: userData.user.email?.split('@')[0] || 'Utilizador',
+        // Fetch profile from API instead of direct query
+        try {
+          const response = await fetch(`/api/profiles/${currentUser.id}`)
+          if (response.ok) {
+            const profileData = await response.json()
+            console.log('[v0] Profile loaded:', profileData)
+            setProfile(profileData)
+          } else {
+            console.log('[v0] Profile not found, using email as fallback')
+            setProfile({
+              id: currentUser.id,
+              full_name: currentUser.email?.split('@')[0] || 'Utilizador',
+              email: currentUser.email,
             })
-            .select()
-            .single()
-          if (newProfile) setProfile(newProfile)
-        } else if (profileData) {
-          setProfile(profileData)
+          }
+        } catch (apiError) {
+          console.error('[v0] Error fetching profile from API:', apiError)
+          setProfile({
+            id: currentUser.id,
+            full_name: currentUser.email?.split('@')[0] || 'Utilizador',
+            email: currentUser.email,
+          })
         }
       } catch (error) {
         console.error('[v0] Error loading profile:', error)
+        setError('Erro ao carregar perfil')
       } finally {
         setIsLoading(false)
       }
@@ -82,6 +89,8 @@ export function ProfileMenu() {
     setProfile(updatedProfile)
   }
 
+  if (!user) return null
+
   const avatarLetter = profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'
 
   return (
@@ -93,6 +102,7 @@ export function ProfileMenu() {
             size="icon"
             className="rounded-full h-10 w-10 border border-muted-foreground/30 hover:bg-muted"
             disabled={isLoading}
+            title="Menu de perfil"
           >
             <div className="w-full h-full rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center font-bold text-sm text-primary-foreground">
               {avatarLetter}
