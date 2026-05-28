@@ -40,7 +40,7 @@ export async function GET() {
       .select(
         `
         *,
-        messages:messages(id, content, user_id, created_at, updated_at),
+        messages:messages(id, content, user_id, created_at, updated_at, status, replied_to_id),
         conversation_participants:conversation_participants(id, user_id, role)
       `
       )
@@ -75,15 +75,15 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, isGroup } = body
+    const { name, isGroup, participantIds } = body
 
-    console.log('[v0] Creating conversation for user:', user.user.id)
+    console.log('[v0] Creating conversation for user:', user.user.id, 'with participants:', participantIds)
 
     const { data: conversation, error } = await supabase
       .from('conversations')
       .insert({
         name,
-        is_group: isGroup,
+        is_group: isGroup || false,
         created_by: user.user.id,
       })
       .select()
@@ -95,6 +95,33 @@ export async function POST(request: Request) {
         { error: 'Failed to create conversation' },
         { status: 500 }
       )
+    }
+
+    // Add additional participants if provided
+    if (participantIds && participantIds.length > 0) {
+      const participants = participantIds.map((id: string) => ({
+        conversation_id: conversation.id,
+        user_id: id,
+        role: 'member',
+      }))
+
+      // Also add to users_conversations
+      const usersConversations = participantIds.map((id: string) => ({
+        user_id: id,
+        conversation_id: conversation.id,
+      }))
+
+      const { error: participantError } = await supabase
+        .from('conversation_participants')
+        .insert(participants)
+
+      const { error: userConvError } = await supabase
+        .from('users_conversations')
+        .insert(usersConversations)
+
+      if (participantError || userConvError) {
+        console.error('[v0] Error adding participants:', participantError || userConvError)
+      }
     }
 
     console.log('[v0] Created conversation:', conversation)
