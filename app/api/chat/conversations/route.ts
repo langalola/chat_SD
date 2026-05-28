@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, isGroup, participantIds } = body
+    const { name, isGroup, participantIds, avatar_url, description } = body
 
     console.log('[v0] Creating conversation for user:', user.user.id, 'with participants:', participantIds)
 
@@ -85,6 +85,8 @@ export async function POST(request: Request) {
         name,
         is_group: isGroup || false,
         created_by: user.user.id,
+        avatar_url: avatar_url || null,
+        description: description || null,
       })
       .select()
       .single()
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
       const participants = participantIds.map((id: string) => ({
         conversation_id: conversation.id,
         user_id: id,
-        role: 'member',
+        role: 'participant',
       }))
 
       // Also add to users_conversations

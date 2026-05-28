@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ConversationList } from './conversation-list'
 import { ChatWindow } from './chat-window'
+import { CreateConversationModal } from './create-conversation-modal'
 import type { ConversationWithDetails } from '@/lib/types/chat'
 
 export function ChatContainer() {
@@ -14,6 +15,7 @@ export function ChatContainer() {
   const [selectedConversation, setSelectedConversation] =
     useState<ConversationWithDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     const loadConversations = async () => {
@@ -47,37 +49,17 @@ export function ChatContainer() {
     loadConversations()
   }, [selectedConversation, router])
 
-  const handleCreateNew = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/chat/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: null, isGroup: false }),
-      })
+  const handleCreateNew = () => {
+    setShowCreateModal(true)
+  }
 
-      if (response.status === 401) {
-        router.push('/auth/login')
-        return
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to create conversation: ${response.status}`)
-      }
-
-      const newConv = await response.json()
-      if (newConv) {
-        const convRes = await fetch('/api/chat/conversations')
-        if (convRes.ok) {
-          const convs = await convRes.json()
-          setConversations(Array.isArray(convs) ? convs : [])
-          setSelectedConversation(convs.find((c: any) => c.id === newConv.id) || null)
-        }
-      }
-    } catch (error) {
-      console.error('[v0] Error creating conversation:', error)
-    } finally {
-      setIsLoading(false)
+  const handleConversationCreated = async (conversation: ConversationWithDetails) => {
+    // Reload conversations
+    const response = await fetch('/api/chat/conversations')
+    if (response.ok) {
+      const convs = await response.json()
+      setConversations(Array.isArray(convs) ? convs : [])
+      setSelectedConversation(conversation)
     }
   }
 
@@ -101,6 +83,14 @@ export function ChatContainer() {
           onClose={() => setSelectedConversation(null)}
         />
       </div>
+
+      {/* Create Conversation Modal */}
+      <CreateConversationModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        recentConversations={conversations}
+        onConversationCreated={handleConversationCreated}
+      />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import type { ConversationWithDetails, Message, TypingIndicator } from '@/lib/ty
 import { ChatRealtimeService } from '@/lib/supabase/realtime'
 import { createClient } from '@/lib/supabase/client'
 import { ManageGroupModal } from './manage-group-modal'
+import { GroupSettingsModal } from './group-settings-modal'
 
 interface ChatWindowProps {
   conversation: ConversationWithDetails | null
@@ -21,6 +22,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set())
   const [showManageGroup, setShowManageGroup] = useState(false)
+  const [showGroupSettings, setShowGroupSettings] = useState(false)
   const [currentUserRole, setCurrentUserRole] = useState<string>('')
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
   const realtimeServiceRef = useRef<ChatRealtimeService | null>(null)
@@ -181,8 +183,8 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowManageGroup(true)}
-              title="Gerenciar membros"
+              onClick={() => setShowGroupSettings(true)}
+              title="Configurações do grupo"
             >
               <Settings className="w-4 h-4" />
             </Button>
@@ -292,6 +294,24 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
           currentUserRole={currentUserRole}
           onMembersUpdated={async () => {
             // Reload conversation data if needed
+          }}
+        />
+      )}
+
+      {/* Group Settings Modal */}
+      {conversation.is_group && (
+        <GroupSettingsModal
+          isOpen={showGroupSettings}
+          onClose={() => setShowGroupSettings(false)}
+          conversation={conversation}
+          currentUserRole={currentUserRole}
+          onGroupUpdated={() => {
+            // Reload conversation data if needed
+            setShowGroupSettings(false)
+          }}
+          onGroupDeleted={() => {
+            // Close chat window and reload list
+            window.location.reload()
           }}
         />
       )}
